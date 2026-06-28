@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vision-utils"
+version = "0.1.0-alpha.1"
+description = "Practical computer vision dataset utilities for image preparation, inspection, and experiment support."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Alan Chang" }]
+license = { text = "MIT" }
+dependencies = [
+    "numpy>=1.23",
+    "opencv-python>=4.8",
+    "tqdm>=4.66",
+]
+
+[project.scripts]
+vision-utils = "vision_utils.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
