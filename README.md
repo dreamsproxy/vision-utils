@@ -1,22 +1,21 @@
 # vision-utils
 
-A collection of practical image processing utilities for dataset preparation, image cropping, collage splitting, masking, visualization, annotation workflows, and computer vision experiments.
+Practical computer vision dataset utilities for dataset preparation, image cropping, collage splitting, resizing, manifest generation, quick visual inspection, and experiment support.
 
 ## Alpha 0.1 scope
 
-The first alpha is intentionally CLI-first and dataset-focused. The goal is to make common computer vision preparation tasks repeatable, scriptable, and easy to audit.
+This alpha intentionally focuses on boring, useful dataset operations:
 
-Implemented commands:
+- detect likely borders and write crop boxes to CSV
+- crop borders while preserving directory structure
+- generate SHA256 image manifests with dimensions
+- resize image datasets by longest side or exact dimensions
+- create random sample grids for visual QA
+- split regular grid collages into individual tiles
 
-```bash
-vision-utils detect-borders INPUT_DIR OUTPUT_CSV
-vision-utils crop-borders INPUT_DIR OUTPUT_DIR --csv crop_report.csv
-vision-utils manifest INPUT_DIR OUTPUT_CSV
-vision-utils resize INPUT_DIR OUTPUT_DIR --longest-side 256
-vision-utils sample-grid INPUT_DIR sample_grid.png --count 64 --tile-size 128
-```
+The package is CLI-first and designed for local research workflows.
 
-## Install from source
+## Install from a local checkout
 
 ```bash
 git clone https://github.com/dreamsproxy/vision-utils.git
@@ -28,10 +27,11 @@ python -m pip install -e .
 
 ### Detect borders
 
-Detect probable border regions and write a CSV report.
-
 ```bash
-vision-utils detect-borders ./images ./border_report.csv --workers 4
+vision-utils detect-borders /path/to/images reports/borders.csv \
+  --workers 4 \
+  --std-threshold 2.0 \
+  --mean-threshold 8.0
 ```
 
 CSV columns:
@@ -40,24 +40,22 @@ CSV columns:
 full_path,dir,filename,y0,x0,y1,x1,cropped
 ```
 
-If no usable crop is detected, `y0`, `x0`, `y1`, and `x1` are set to `-1`.
+If no crop box is detected, coordinates are `-1` and `cropped` is `False`.
 
 ### Crop borders
 
-Crop detected borders while preserving the input directory structure.
-
 ```bash
-vision-utils crop-borders ./images ./cropped --csv ./crop_report.csv --workers 4
+vision-utils crop-borders /path/to/images /path/to/cropped \
+  --csv reports/crop_report.csv \
+  --workers 4
 ```
 
-By default, files without a detected crop are copied unchanged. Use `--no-copy-uncropped` to skip them.
+By default, images with no detected crop are copied unchanged. Use `--no-copy-uncropped` to only emit cropped images.
 
-### Manifest
-
-Generate a checksum and image-dimension manifest.
+### Build checksum manifest
 
 ```bash
-vision-utils manifest ./images ./manifest.csv
+vision-utils manifest /path/to/images reports/manifest.csv --workers 4
 ```
 
 CSV columns:
@@ -68,33 +66,50 @@ full_path,dir,filename,sha256,size_bytes,width,height
 
 ### Resize dataset
 
-Resize a dataset while preserving directory structure.
+Resize by longest side:
 
 ```bash
-vision-utils resize ./images ./resized_256 --longest-side 256
-vision-utils resize ./images ./resized_exact --width 256 --height 256
+vision-utils resize /path/to/images /path/to/resized --max-side 256
 ```
 
-### Sample grid
-
-Create a deterministic sample grid for quick visual inspection.
+Resize to exact dimensions:
 
 ```bash
-vision-utils sample-grid ./images ./sample_grid.png --count 64 --tile-size 128 --seed 1
+vision-utils resize /path/to/images /path/to/resized --width 256 --height 256
 ```
 
-## Design rules
+### Create a sample grid
 
-- Prefer boring, inspectable utilities over clever automation.
-- Preserve directory structures by default.
-- Emit CSV reports for auditability.
-- Keep progress bars visible even when `--quiet` is used.
-- Keep image operations OpenCV-based for speed and compatibility with existing workflows.
+```bash
+vision-utils sample-grid /path/to/images reports/sample_grid.png \
+  --limit 64 \
+  --thumb-size 128 \
+  --seed 1
+```
 
-## Near-term backlog
+### Split a regular grid collage
 
-- Collage splitting.
-- Mask preview overlays.
-- Dataset comparison reports.
-- Basic tests with generated toy images.
-- Optional JSON sidecar summaries.
+```bash
+vision-utils split-collage sample_grid.png split_tiles --rows 8 --cols 8
+```
+
+## Shared arguments
+
+- `--exts png,jpg,webp` limits file extensions.
+- `--non-recursive` only processes direct children of the input directory.
+- `--quiet` suppresses non-progress logs, but progress bars remain enabled.
+- Directory-preserving operations mirror the input tree under the output directory.
+
+## Notes
+
+- Border detection is heuristic. It is useful for dataset cleanup, not a formal segmentation algorithm.
+- The border detector combines row/column variance with intensity distance from the median boundary color.
+- Image IO is OpenCV-based and uses `imdecode` / `imencode` for better path compatibility.
+
+## Planned next steps
+
+- add pytest smoke tests with synthetic images
+- add mask preview utilities
+- add safer dry-run reports
+- add side-by-side before/after QA grids
+- add CLI examples for AFGAN dataset preparation
